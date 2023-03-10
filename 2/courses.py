@@ -48,10 +48,37 @@ def create_tables():
     )
     """
 
+    groupsql = """--sql
+    CREATE TABLE IF NOT EXISTS Groups (
+        id integer primary key autoincrement not null,
+        name varchar(255)
+    )
+    """
+
+    completed_coursesql = """--sql
+    CREATE TABLE IF NOT EXISTS Completed_courses (
+        id integer primary key autoincrement not null,
+        course_id integer,
+        teacher_id integer, 
+        student_id integer,
+        foreign key (course_id)
+            references Courses(id)
+                on delete cascade,
+        foreign key (teacher_id)
+            references Teachers(id)
+                on delete cascade,
+        foreign key (student_id)
+            references Students(id)
+                on delete cascade
+    )
+    """
+
     db.execute(teachersql)
     db.execute(coursesql)
     db.execute(studentsql)
     db.execute(attendeesql)
+    db.execute(groupsql)
+    db.execute(completed_coursesql)
 
 
 # lisää opettajan tietokantaan
