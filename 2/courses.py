@@ -54,8 +54,9 @@ def create_tables():
 
 
 # lisää opettajan tietokantaan
-def create_teacher(name):
-    pass
+def create_teacher(name: str):
+    sql = "INSERT INTO Teachers (name) VALUES (:name)"
+    db.execute(sql, {"name": name})
 
 
 # lisää kurssin tietokantaan
