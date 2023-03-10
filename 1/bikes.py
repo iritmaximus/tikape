@@ -26,20 +26,22 @@ def distance_of_user(user: str) -> int:
     try:
         id = get_user_id(user)
     except ValueError as e:
-        return f"Error, {e}"
+        print(f"Error, {e}")
+        return 0
 
     sql = "SELECT SUM(Trips.distance) FROM Trips WHERE Trips.user_id=:id"
     result = db.execute(sql, {"id": id}).fetchone()
     if result:
         return result[0]
-    return "0"
+    return 0
 
 
-def speed_of_user(user: str) -> int:
+def speed_of_user(user: str) -> str:
     try:
         id = get_user_id(user)
     except ValueError as e:
-        return f"Error, {e}"
+        print(f"Error, {e}")
+        return "0"
 
     sql = "SELECT sum(distance), sum(duration) FROM Trips WHERE user_id=:id"
     result = db.execute(sql, {"id": id}).fetchone()
@@ -48,7 +50,7 @@ def speed_of_user(user: str) -> int:
     return "0"
 
 
-def duration_in_each_city(day: str) -> int:
+def duration_in_each_city(day: str) -> list[str]:
     sql = """
     SELECT Cities.name, SUM(Trips.duration) as durSum
     FROM Trips
@@ -62,14 +64,15 @@ def duration_in_each_city(day: str) -> int:
     if result:
         return result
     else:
-        return "No durations found"
+        return ["No durations found"]
 
 
 def users_in_city(city: str) -> int:
     try:
         id = get_city_id(city)
     except ValueError as e:
-        return f"Error, {e}"
+        print(f"Error, {e}")
+        return 0
 
     # count all users who have city_id in stops
     sql = """
@@ -86,14 +89,15 @@ def users_in_city(city: str) -> int:
     if result:
         return result[0]
     else:
-        return "0"
+        return 0
 
 
-def trips_on_each_day(city: str) -> int:
+def trips_on_each_day(city: str) -> list[str]:
     try:
         id = get_city_id(city)
     except ValueError as e:
-        return f"Error, {e}"
+        print(f"Error, {e}")
+        return ["0"]
     
     sql = """
     SELECT Trips.day, count(*)
@@ -109,15 +113,16 @@ def trips_on_each_day(city: str) -> int:
     if result:
         return result
     else:
-        return "No trips"
+        return ["No trips"]
 
 
 
-def most_popular_start(city: str) -> int:
+def most_popular_start(city: str) -> list[str]:
     try:
         id = get_city_id(city)
     except ValueError as e:
-        return f"Error, {e}"
+        print(f"Error, {e}")
+        return ["0"]
 
     sql = """
     SELECT Stops.name, count(*) as tripCount
@@ -133,4 +138,4 @@ def most_popular_start(city: str) -> int:
     if result:
         return result
     else:
-        return "No starts"
+        return ["No starts"]
