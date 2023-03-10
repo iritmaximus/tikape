@@ -18,7 +18,8 @@ def create_tables():
     coursesql = """--sql
     CREATE TABLE IF NOT EXISTS Courses (
         id integer primary key autoincrement not null,
-        name varchar(255) not null
+        name varchar(255) not null,
+        credits int
     )
     """
 
@@ -54,19 +55,45 @@ def create_tables():
 
 
 # lisää opettajan tietokantaan
-def create_teacher(name: str):
-    sql = "INSERT INTO Teachers (name) VALUES (:name)"
-    db.execute(sql, {"name": name})
+def create_teacher(name: str) -> int:
+    sql = "INSERT INTO Teachers (name) VALUES (:name) RETURNING id"
+    result = db.execute(sql, {"name": name}).fetchone()
+    if result:
+        return result[0]
+    else:
+        return -1
 
 
 # lisää kurssin tietokantaan
-def create_course(name, credits, teacher_ids):
-    pass
+def create_course(name: str, credits: int, teacher_ids: list[int]) -> int:
+    sql = "INSERT INTO Courses (name, credits) VALUES (:name, :credits) RETURNING id"
+    id = db.execute(sql, {"name": name, "credits": credits}).fetchone()
+    if not id:
+        return -1
+    id = id[0]
+
+    sql = """--sql
+        INSERT INTO Attendees (course_id, teacher_id) 
+        VALUES (:course_id, :teacher_id)"""
+
+    for teacher in teacher_ids:
+        db.execute(sql, {"course_id": id, "teacher_id": teacher})
+
+    return id
 
 
 # lisää opiskelijan tietokantaan
-def create_student(name):
-    pass
+def create_student(name: str) -> int:
+    sql = """--sql
+    INSERT INTO Students (name) 
+    VALUES (:name)
+    RETURNING id
+    """
+    result = db.execute(sql, {"name": name}).fetchone()
+    if result:
+        return result[0]
+    else:
+        return -1
 
 
 # antaa opiskelijalle suorituksen kurssista
