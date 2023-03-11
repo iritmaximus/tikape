@@ -131,7 +131,15 @@ def add_credits(student_id: int, course_id: int, date: str, grade: int):
     INSERT INTO Completed_courses (course_id, student_id, date, grade)
     VALUES (:course_id, :student_id, :date, :grade)
     """
-    db.execute(sql, {"course_id": course_id, "student_id": student_id, "date": date, "grade": grade})
+    db.execute(
+        sql,
+        {
+            "course_id": course_id,
+            "student_id": student_id,
+            "date": date,
+            "grade": grade,
+        },
+    )
 
 
 # lisää ryhmän tietokantaan
