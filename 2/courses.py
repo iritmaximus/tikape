@@ -326,7 +326,8 @@ def grade_distribution(course_name: str) -> dict:
 # FIXME en ummarra miten laskea suorittajat.
 # hakee listan kursseista (nimi, opettajien määrä, suorittajien määrä) (aakkosjärjestyksessä)
 def course_list() -> list[str]:
-    sql = """--sql
+    # failed attempt at doing this
+    _sql = """--sql
     SELECT
         Courses.name,
         COUNT(Course_teachers.id),
@@ -337,9 +338,31 @@ def course_list() -> list[str]:
     GROUP BY Courses.id
     ORDER BY Courses.name
     """
-    result = db.execute(sql).fetchall()
-    if result:
-        return result
+
+    # bruteforce attempt
+    sql = "SELECT id FROM Courses"
+    groups = db.execute(sql).fetchall()
+
+    cursor = db.cursor()
+
+    course_sql = "SELECT name FROM Courses WHERE id=:id"
+    student_sql = """--sql
+    SELECT count(*) FROM Course_students WHERE course_id=:id
+    """
+    teacher_sql = """--sql
+    SELECT count(*) FROM Course_teachers WHERE course_id=:id
+    """
+    list = []
+    for x in groups:
+        x = x[0]
+        result_course = cursor.execute(course_sql, {"id": x}).fetchall()
+        result_student = cursor.execute(student_sql, {"id": x}).fetchall()[0]
+        result_teacher = cursor.execute(teacher_sql, {"id": x}).fetchall()[0]
+        print(str(result_course), result_teacher, result_student)
+        list.append((str(result_course), result_teacher, result_student))
+
+    if list:
+        return list
     else:
         return [""]
 
