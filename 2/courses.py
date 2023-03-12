@@ -347,6 +347,11 @@ def course_list() -> list[str]:
 # hakee listan opettajista kursseineen (aakkosjärjestyksessä opettajat ja kurssit)
 def teacher_list() -> list[str]:
     # palauttaa ("opettajan nimi", "kurssi1, kurssi2") eikä ("opettaja", ["kurssi1", "kurssi2"])
+    # enkä tiedä miten tehdä sitä fiksummin sql kanssa
+    # en ollut ihan varma oliko tarkoitus saada puhtaasti sql tehtyä kaikki vai hieman sekoittaa pythonia
+
+    # (halutun vastauksen olisi toki saanut vain yksittäinen_rivi[1].split(","),
+    # ja sen tökännyt toiseksi tuplen jäseneksi)
     sql = """--sql
     SELECT Teachers.name, GROUP_CONCAT(Courses.name, ', ')
     FROM Teachers
@@ -363,15 +368,73 @@ def teacher_list() -> list[str]:
 
 
 # hakee ryhmässä olevat henkilöt (aakkosjärjestyksessä)
-def group_people(group_name):
-    pass
+def group_people(group_name: str) -> list[str]:
+    # FIXME eepä toemi
+    sql = """--sql
+    SELECT id FROM Groups WHERE Groups.name=:group_name
+    """
+    id = db.execute(sql, {"group_name": group_name}).fetchone()
+    if id:
+        id = id[0]
+    else:
+        return [""]
+
+    sql = """--sql
+    SELECT Students.name as name
+    FROM Students, Group_students
+        WHERE Group_students.group_id=:id
+    UNION
+    SELECT Teachers.name as name
+    FROM Teachers, Group_teachers
+        WHERE Group_teachers.group_id=:id
+    """
+    result = db.execute(sql, {"id": id}).fetchone()
+    if result:
+        return result
+    else:
+        return [""]
 
 
 # hakee ryhmissä saatujen opintopisteiden määrät (aakkosjärjestyksessä)
-def credits_in_groups():
-    pass
+def credits_in_groups() -> list[str]:
+    # FIXME meh
+    sql = """--sql
+    SELECT
+        Groups.name,
+        SUM()
+    FROM
+        Completed_courses,
+    """
+    return [""]
 
 
 # hakee ryhmät, joissa on tietty opettaja ja opiskelija (aakkosjärjestyksessä)
-def common_groups(teacher_name, student_name):
-    pass
+def common_groups(teacher_name: str, student_name: str) -> list[str]:
+    # FIXME cant manage lol
+    sql = "SELECT id FROM Teachers WHERE name=:teacher_name"
+    teacher_id = db.execute(sql, {"teacher_name": teacher_name}).fetchone()
+    if teacher_id:
+        teacher_id = teacher_id[0]
+    else:
+        return [""]
+    sql = "SELECT id FROM Students WHERE name=:student_name"
+    student_id = db.execute(sql, {"student_name": student_name}).fetchone()
+    if student_id:
+        student_id = student_id[0]
+    else:
+        return [""]
+
+    sql = """--sql
+    SELECT group_id FROM Group_teachers WHERE teacher_id=:teacher_id
+    """
+    teacher_groups = db.execute(sql, {"teacher_id": teacher_id}).fetchall()
+    if teacher_groups:
+        teacher_groups = [x[0] for x in teacher_groups]
+    sql = """--sql
+    SELECT group_id FROM Group_students WHERE student_id=:student_id
+    """
+    student_groups = db.execute(sql, {"student_id": student_id}).fetchall()
+    if student_groups:
+        student_groups = [x[0] for x in student_groups]
+
+    groups = set(teacher_groups).intersection(student_groups)
