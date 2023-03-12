@@ -31,26 +31,32 @@ def create_tables():
     )
     """
 
-    attendeesql = """--sql
-    CREATE TABLE IF NOT EXISTS Attendees (
-        id integer primary key autoincrement not null,
-        course_id integer,
-        group_id integer,
-        student_id integer,
-        teacher_id integer,
-        foreign key (course_id)
-            references Courses (id)
-                on delete cascade,
-        foreign key (group_id)
-            references Groups (id)
-                on delete cascade,
-        foreign key (student_id)
-            references Students(id)
-                on delete cascade,
-        foreign key (teacher_id)
-            references Teachers(id)
-                on delete cascade
+    course_students = """--sql
+    CREATE TABLE IF NOT EXISTS Course_students (
+            id integer primary key autoincrement not null,
+            student_id integer,
+            course_id integer,
+            foreign key (student_id)
+                references Students (id)
+                    on delete cascade,
+            foreign key (course_id)
+                references Courses (id)
+                    on delete cascade
     )
+    """
+
+    course_teachers = """--sql
+    CREATE TABLE IF NOT EXISTS Course_teachers (
+            id integer primary key autoincrement not null,
+            course_id integer,
+            teacher_id integer,
+            foreign key (course_id)
+                references Courses (id)
+                    on delete cascade,
+            foreign key (teacher_id)
+                references Teachers (id)
+                    on delete cascade
+            )
     """
 
     groupsql = """--sql
@@ -60,12 +66,40 @@ def create_tables():
     )
     """
 
+    group_students = """--sql
+    CREATE TABLE IF NOT EXISTS Group_students (
+            id integer primary key autoincrement not null,
+            student_id integer not null,
+            group_id integer not null,
+            foreign key (student_id)
+                references Students (id)
+                    on delete cascade,
+            foreign key (group_id)
+                references Groups (id)
+                    on delete cascade
+            )
+    """
+
+    group_teachers = """--sql
+    CREATE TABLE IF NOT EXISTS Group_teachers (
+            id integer primary key autoincrement not null,
+            teacher_id integer not null,
+            group_id integer not null,
+            foreign key (teacher_id)
+                references Teachers (id)
+                    on delete cascade,
+            foreign key (group_id)
+                references Groups (id)
+                    on delete cascade
+            )
+    """
+
     completed_coursesql = """--sql
     CREATE TABLE IF NOT EXISTS Completed_courses (
         id integer primary key autoincrement not null,
         course_id integer not null,
         student_id integer not null,
-        date varchar(255),
+        date date,
         grade integer,
         foreign key (course_id)
             references Courses(id)
@@ -76,12 +110,26 @@ def create_tables():
     )
     """
 
+    gradesql = """--sql
+    CREATE TABLE IF NOT EXISTS Grades (
+            id integer primary key not null
+            )
+    """
+
     db.execute(teachersql)
-    db.execute(coursesql)
     db.execute(studentsql)
-    db.execute(attendeesql)
+    db.execute(coursesql)
+    db.execute(course_students)
+    db.execute(course_teachers)
     db.execute(groupsql)
+    db.execute(group_students)
+    db.execute(group_teachers)
     db.execute(completed_coursesql)
+
+    # because 30mins of reading stackoverflow won't give me an answer...
+    db.execute(gradesql)
+    for x in range(1, 6):
+        db.execute("INSERT INTO Grades (id) VALUES (:x)", {"x": x})
 
 
 # lisää opettajan tietokantaan
@@ -103,7 +151,7 @@ def create_course(name: str, credits: int, teacher_ids: list[int]) -> int:
     id = id[0]
 
     sql = """--sql
-        INSERT INTO Attendees (course_id, teacher_id)
+        INSERT INTO Course_teachers (course_id, teacher_id)
         VALUES (:course_id, :teacher_id)"""
 
     for teacher in teacher_ids:
@@ -129,7 +177,7 @@ def create_student(name: str) -> int:
 def add_credits(student_id: int, course_id: int, date: str, grade: int):
     sql = """--sql
     INSERT INTO Completed_courses (course_id, student_id, date, grade)
-    VALUES (:course_id, :student_id, :date, :grade)
+    VALUES (:course_id, :student_id, :date, :grade_id)
     """
     db.execute(
         sql,
@@ -137,7 +185,7 @@ def add_credits(student_id: int, course_id: int, date: str, grade: int):
             "course_id": course_id,
             "student_id": student_id,
             "date": date,
-            "grade": grade,
+            "grade_id": grade,
         },
     )
 
@@ -150,11 +198,11 @@ def create_group(name, teacher_ids, student_ids):
     group_id = db.execute(sql, {"name": name}).fetchone()[0]
 
     teacher_sql = """--sql
-    INSERT INTO Attendees (teacher_id, group_id)
+    INSERT INTO Group_teachers (teacher_id, group_id)
     VALUES (:teacher, :group_id)
     """
     student_sql = """--sql
-    INSERT INTO Attendees (student_id, group_id)
+    INSERT INTO Group_students (student_id, group_id)
     VALUES (:student, :group_id)
     """
     for teacher in teacher_ids:
@@ -171,13 +219,12 @@ def courses_by_teacher(teacher_name: str) -> list[str]:
         id = id[0]
     else:
         return [""]
-
     sql = """--sql
     SELECT Courses.name
-    FROM Attendees
-        JOIN Teachers ON Teachers.id=Attendees.teacher_id
-        JOIN Courses ON Attendees.course_id=Courses.id
-    WHERE Attendees.teacher_id=:id
+    FROM Course_teachers
+        JOIN Teachers ON Teachers.id=Course_teachers.teacher_id
+        JOIN Courses ON Course_teachers.course_id=Courses.id
+    WHERE Course_teachers.teacher_id=:id
     ORDER BY Teachers.name DESC
     """
     result = db.execute(sql, {"id": id}).fetchall()
@@ -202,8 +249,8 @@ def credits_by_teacher(teacher_name: str) -> int:
     SELECT SUM(Courses.credits)
     FROM Completed_courses
         JOIN Courses ON Courses.id=Completed_courses.course_id
-        JOIN Attendees ON Attendees.course_id=Courses.id
-    WHERE Attendees.teacher_id=:id
+        JOIN Course_teachers ON Course_teachers.course_id=Courses.id
+    WHERE Course_teachers.teacher_id=:id
     """
 
     result = db.execute(sql, {"id": id}).fetchone()
@@ -220,7 +267,6 @@ def courses_by_student(student_name: str) -> list[str]:
         id = id[0]
     else:
         return [""]
-
     sql = """--sql
     SELECT Courses.name, Completed_courses.grade
     FROM Completed_courses
@@ -235,23 +281,85 @@ def courses_by_student(student_name: str) -> list[str]:
 
 
 # hakee tiettynä vuonna saatujen opintopisteiden määrän
-def credits_by_year(year):
-    pass
+def credits_by_year(year: int) -> int:
+    yearstr = str(year)
+    sql = """--sql
+    SELECT SUM(Courses.credits)
+    FROM Completed_courses
+        JOIN Courses ON Courses.id=Completed_courses.course_id
+    WHERE SUBSTRING(Completed_courses.date, 1, 4)=:year
+    """
+    result = db.execute(sql, {"year": yearstr}).fetchone()
+    if result:
+        return result[0]
+    else:
+        return 0
 
 
 # hakee kurssin arvosanojen jakauman (järjestyksessä arvosanat 1-5)
-def grade_distribution(course_name):
-    pass
+def grade_distribution(course_name: str) -> dict:
+    sql = "SELECT id FROM Courses WHERE name=:name"
+    id = db.execute(sql, {"name": course_name}).fetchone()
+    if id:
+        id = id[0]
+    else:
+        return {0: 0}
+    sql = """--sql
+    SELECT Grades.id, COUNT(*)
+    FROM Completed_courses
+        INNER JOIN Grades ON Grades.id=Completed_courses.grade
+    WHERE Completed_courses.course_id=:id
+    GROUP BY Grades.id
+    """
+    result = db.execute(sql, {"id": id}).fetchall()
+    if result:
+        dict = {}
+        for x in range(1, 6):
+            dict[x] = 0
+        for item in result:
+            dict[item[0]] = item[1]
+        return dict
+    else:
+        return {0: 0}
 
 
+# FIXME en ummarra miten laskea suorittajat.
 # hakee listan kursseista (nimi, opettajien määrä, suorittajien määrä) (aakkosjärjestyksessä)
-def course_list():
-    pass
+def course_list() -> list[str]:
+    sql = """--sql
+    SELECT
+        Courses.name,
+        COUNT(Course_teachers.id),
+        COUNT(Course_students.id)
+    FROM Courses
+        LEFT JOIN Course_teachers ON Course_teachers.course_id=Courses.id
+        LEFT JOIN Course_students ON Course_students.course_id=Courses.id
+    GROUP BY Courses.id
+    ORDER BY Courses.name
+    """
+    result = db.execute(sql).fetchall()
+    if result:
+        return result
+    else:
+        return [""]
 
 
 # hakee listan opettajista kursseineen (aakkosjärjestyksessä opettajat ja kurssit)
-def teacher_list():
-    pass
+def teacher_list() -> list[str]:
+    # palauttaa ("opettajan nimi", "kurssi1, kurssi2") eikä ("opettaja", ["kurssi1", "kurssi2"])
+    sql = """--sql
+    SELECT Teachers.name, GROUP_CONCAT(Courses.name, ', ')
+    FROM Teachers
+        JOIN Course_teachers ON Course_teachers.teacher_id=Teachers.id
+        JOIN Courses ON Course_teachers.course_id=Courses.id
+    GROUP BY Teachers.id
+    ORDER BY Teachers.name
+    """
+    result = db.execute(sql).fetchall()
+    if result:
+        return result
+    else:
+        return [""]
 
 
 # hakee ryhmässä olevat henkilöt (aakkosjärjestyksessä)
